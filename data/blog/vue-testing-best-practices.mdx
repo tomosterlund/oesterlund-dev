@@ -1,0 +1,246 @@
+---
+title: 'Vue Testing Best Practices'
+date: '2023-09-11'
+tags: ['vue', 'testing']
+draft: false
+summary: 'This article will lean on some best practices from Yoni Goldberg’s book on testing JavaScript, and try to translate his perspectives into the context of testing Vue-components.'
+---
+
+Just like production code, code for test automation has the potential to be written and organized in many ways. Many software teams spend large parts of their day writing, fixing and maintaining their tests. Yet, for some reason, every now and then I hear a statement such as:
+
+> Let’s not care too much about cleanliness in our tests…
+
+This is a statement with which I could not disagree more. Surely, no one likes to spend an extra hour on fixing tests, just because someone wrote a test depending too heavily on implementation details. Also, surely, no one likes to spend an hour trying to understand the test of a completely unrelated, older feature, when the CI-pipeline fails for your newly built feature. “Uncle Bob” puts it like this:
+
+> Test code is just as important as production code. It is not a second-class citizen. It requires thought, design, and care. It must be kept as clean as production code.
+
+_Clean Code (2008), Robert C. Martin._
+
+This article will lean on some best practices from Yoni Goldberg’s [book on testing JavaScript](https://github.com/goldbergyoni/javascript-testing-best-practices), and try to translate his perspectives into the context of testing Vue-components.
+
+## Best practice 1: The Golden Rule: Design for lean testing
+
+From Yoni Goldberg, about testing-code:
+
+> Design it to be short, dead-simple, flat, and delightful to work with. One should look at a test and get the intent instantly.
+>
+> See, our minds are already occupied with our main job — the production code. There is no ‘ headspace’ for additional complexity. Should we try to squeeze yet another sus-system into our poor brain it will slow the team down which works against the reason we do testing. Practically this is where many teams just abandon testing.
+
+### 👏 Doing It Right Example: a short, intent-revealing test
+
+```js
+import { shallowMount } from '@vue/test-utils'
+
+describe('Product', () => {
+  describe('adding a product to the cart', () => {
+    it('should add product with quantity 1 to the cart, when stock is greater than 0', async () => {
+      const wrapper = shallowMount(Product, {
+        props: {
+          stock: 1,
+        }
+      })
+
+      await wrapper.find('[data-test-id="cart-button"]').trigger('click')
+
+      expect(wrapper.emitted('add-to-cart')).toEqual([[{ quantity: 1 }]])
+    })
+  })
+})
+```
+
+## Best practice 2: Test user interaction with DOM elements
+
+### ✅ Do:
+
+Test user interactions with buttons & different inputs. Whenever you see a `@click`, `@change` or `@input` in your templates, you probably enable some user behavior that can be tested.
+
+### ❌ Otherwise:
+
+The wanted results of user interactions might break, without you noticing it. This is probably the most true if you’re expecting some side effects from user input.
+
+### 👏 Doing It Right Example: testing the effect of interacting with a button
+
+```js
+describe('Cart', () => {
+  describe('Moving on to checkout', () => {
+    it('should move on to checkout when clicking the "Checkout button"', async () => {
+      const wrapper = shallowMount(Cart)
+      const checkoutButton = wrapper.find('[data-test-id="checkout-button"]')
+
+      await checkoutButton.trigger('click')
+
+      expect(wrapper.emitted().checkout).toBeTruthy()
+    })
+  })
+})
+```
+
+## Best practice 3: Test outcomes of different prop values
+
+### ✅ Do:
+
+Test that your component implements the desired behavior, depending on the values you pass as props. For example, one might pass a prop `isInteractionDisabled` to a component _ProductListing_, and expect that the component disabled some interactive behavior, when this prop is set to `true`. If you enjoy writing parametrized tests, this is a prime candidate for doing so.
+
+### ❌ Otherwise:
+
+Another developer might come along and change something in the implementation, breaking the desired effect of your props. Another scenario, which happens more often than one might think: someone might misunderstand the intent of the prop and misuse it, since there are no tests to display the use case of it.
+
+```js
+describe('ProductListing', () => {
+  describe('Interaction with listing', () => {
+    it('should not open the product details when clicking on a product image, if interaction is disabled', () => {
+      const wrapper = shallowMount(ProductListing, {
+        props: {
+          isInteractionDisabled: true,
+        }
+      })
+      const imageComponent = wrapper.findComponent(ProductListingImage)
+
+      imageComponent.vm.$emit('open-details', { id: 1 })
+
+      expect(wrapper.vm.$router.push).not.toHaveBeenCalled()
+    })
+  })
+})
+```
+
+## Best practice 4: Test effect of global state on component
+
+### ✅ Do:
+
+Test that your component reacts the way you would expect it to when given a certain global state. In Vue, state from Pinia or Vuex would be the most common thing to test.
+
+### 👏 Doing It Right Example: testing the effect of global state on a component
+
+```js
+describe('Cart', () => {
+  describe('Displaying items that a customer has selected', () => {
+    it('should show a message saying the cart is empty, when the cart is empty', () => {
+      const wrapper = shallowMount(ProductListing, {
+        global: {
+          mocks: {
+            $store: {
+              getters: {
+                'cart/items': [],
+              }
+            }
+          }
+        }
+      })
+
+      expect(wrapper.find(testId('empty-cart-message')).exists()).toBe(true)
+    })
+  })
+})
+```
+
+## Best practice 5: Test side effects
+
+### ✅ Do:
+
+I know... One of the rules of clean code is: “Do not have side effects”. Sometimes though, you just don’t find a way around it. For example, you might have a globally available `TrackingService` object, whose method `purchaseCanceled` should be called when a user cancels their purchase. Side effects are extra crucial to be put under test, since breaking them often goes unnoticed way longer than other bugs.
+
+### ❌ Otherwise:
+
+Other components or services that depend on your component, might break without anyone taking notice. Might cause annoying debugging sessions, because you observe the bug in one place, but the error takes place somewhere else.
+
+### 👏 Doing It Right Example: testing side effects
+
+```js
+describe('Checkout', () => {
+  describe('Canceling the purchase', () => {
+    it('should notify the tracking service when the purchase is canceled', async () => {
+      const wrapper = shallowMount(Checkout, {
+        global: {
+          mocks: {
+            $trackingService: {
+              purchaseCanceled: jest.fn(),
+            }
+          }
+        }
+      })
+      const checkoutComponent = wrapper.findComponent(CheckoutPayment)
+      const cancelSpy = jest.spyOn(wrapper.vm.$trackingService, 'purchaseCanceled')
+
+      await checkoutComponent.vm.$emit('purchase-canceled')
+
+      expect(cancelSpy).toHaveBeenCalled()
+    })
+  })
+})
+```
+
+## Best practice 6: Test effects on DOM
+
+### ✅ Do:
+
+Test that interactions with any of the component APIs, result in the desired effect on the DOM. For example, given different prop values, should the DOM react in a certain way? Or: if a dialog is initially hidden on mounting the component, should it be shown as a reaction to a certain user input?
+
+### 👏 Doing It Right Example: testing the effect on the DOM
+
+```js
+describe('ProductListing', () => {
+  describe('Interaction with listing', () => {
+    it('should show the product details when hovering over a product image', async () => {
+      const wrapper = shallowMount(ProductListing)
+      const imageElement = wrapper.find('[data-test-id="product-image"]')
+
+      await imageElement.vm.$emit('mouseenter')
+
+      expect(wrapper.find(testId('product-details')).exists()).toBe(true)
+    })
+  })
+})
+```
+
+## Best practice 7: Do not test the resulting local state
+
+### ✅ Do:
+
+Avoid testing what the resulting local state of a component is, after triggering some kind of event. For example: you have a component called _CustomerData_ displaying an address form, and a checkbox with the label “Add alternative delivery address”. When checking this checkbox, a data property `hasAlternativeAddress` is set to true. This, in turn, leads to a second address form being displayed.
+
+### ❌ Otherwise:
+
+You are testing implementation details, which might make your tests fail, though everything works.
+
+### 👎 Anti-pattern example: Testing the resulting local state
+
+```js
+describe('CustomerData', () => {
+  describe('Adding an alternative delivery address', () => {
+    it('should set hasAlternativeAddress to true, when the checkbox is checked', async () => {
+      const wrapper = shallowMount(CustomerData)
+      const checkbox = wrapper.find('[data-test-id="alternative-address-checkbox"]')
+
+      await checkbox.trigger('click')
+
+      expect(wrapper.vm.hasAlternativeAddress).toBe(true)
+    })
+  })
+})
+```
+
+### 👏 Doing It Right Example: Testing the resulting DOM
+
+```js
+
+describe('CustomerData', () => {
+  describe('Adding an alternative delivery address', () => {
+    it('should show the alternative address form, when the checkbox is checked', async () => {
+      const wrapper = shallowMount(CustomerData)
+      const checkbox = wrapper.find('[data-test-id="alternative-address-checkbox"]')
+
+      await checkbox.trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find(testId('alternative-address-form')).exists()).toBe(true)
+    })
+  })
+})
+```
+
+## More on this topic
+
+If you caught yourself nodding approvingly while reading, the good thing is: there is more. These 7 best practices are only some, among a collection that I’m putting together on GitHub: https://github.com/tomosterlund/vue-testing-best-practices
+
+Also, if you haven’t read it yet, I can really vouch again for taking a look on Yoni Goldberg’s book on the topic, applied to the broader JavaScript context: https://github.com/goldbergyoni/javascript-testing-best-practices

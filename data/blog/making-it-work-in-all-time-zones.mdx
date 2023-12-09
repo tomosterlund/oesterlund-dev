@@ -1,0 +1,155 @@
+---
+title: 'Making it work in all time zones: three mistakes when working with JavaScript Dates'
+date: '2023-08-30'
+tags: ['javascript', 'ci', 'testing']
+draft: false
+summary: 'If you ever worked with an application that saves, mutates, or displays timestamps of any kind, you surely know that time zones can be a reason to exercise caution.'
+---
+
+If you ever worked with an application that saves, mutates, or displays timestamps of any kind, you surely know that time zones can be a reason to exercise caution. In some cases, you might save timestamps in ISO-8061 format with the UTC suffix, such as 2023‐08‐30T10:17:03Z, or in other cases, without time and without the UTC suffix: 2023‐08‐30.
+
+In any case, there are a lot of mistakes one can make, when parsing these timestamps into JavaScript Date-objects, and then parsing them back into strings. This article is not a guide on how to work with JavaScript Dates, but rather how to test that your usage of them works in different time zones.
+
+I learned the hard way, working on an [open source calendar](https://github.com/tomosterlund/qalendar), that overlooking timezone testing can cause a lot of pain and bugs down the road. In fact, during my first attempt at building the calendar, it caused me so much trouble, that I had to rewrite large parts of the application after a few months of development. Here are the three biggest mistakes I made, and how I avoided them when rebuilding.
+
+## Mistake 1: Not enough unit tests of the time-sensitive logic
+
+“Really… Your tip is just to write more unit tests?…”
+
+Please bear with me for another moment.
+
+So, my calendar was full of logic that worked with Date-objects, and mutation of these. However, I had only written some handful of unit tests for this logic. Had I run a coverage report at that time, then it would have been all numbers in red. Displaying and mutating time is arguably at the very core of any good calendar; if your date-time logic does not work out, chances are nothing else will work like expected.
+
+**Doing it the right way:**
+
+Reach as high a test coverage as you possibly can, of any logic that deals with date and time. If you haven’t yet, install a tool for code coverage, such as [nyc](https://github.com/istanbuljs/nyc) or [c8](https://github.com/bcoe/c8) and get a picture of where you need more unit tests.
+
+## Mistake 2: Unit tests run only in one timezone
+
+So you’ve written some unit tests. Great. Unfortunately, if you’re working a lot with Date-objects, this is not always enough.
+
+I made the mistake of running the few unit tests that I had initially written for my calendar, only in one timezone. This would be in whichever zone that GitHub actions ran my tests. I didn’t think of time zones. I didn’t control them. And I initially had no idea that simply having run my tests in a different timezone would have shown me that something was seriously wrong.
+
+**Doing it the right way:**
+
+Configure your CI-environment to run in different time zones. If you’re using GitHub actions, there is an action called [set timezone](https://github.com/szenius/set-timezone), which can help you out.
+
+Before running your tests, just define in which time zone you want to run them. For example:
+
+```yaml
+name: Unit tests
+on:
+  pull_request:
+
+jobs:
+  test_london:
+    name: Test London
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ✅
+        uses: actions/checkout@v3
+      - name: Set Timezone 🌍🌎🌏
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: "Europe/London"
+      - name: Setup Node.js 🔧
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+      - name: Install dependencies 🛠️
+        run: npm i
+      - name: Run Vitest 🧪
+        run: npx vitest run --silent
+```
+
+In my case, I ended up running my tests in three different zones. “Europe/London” for UTC, “US/Pacific” for covering anything behind UTC, and lastly “Asia/Tokyo” for covering anything ahead of UTC. So my full unit test workflow now looked like this:
+
+```yaml
+name: Unit tests
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  test_london:
+    name: Test London
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ✅
+        uses: actions/checkout@v3
+      - name: Set Timezone 🌍🌎🌏
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: "Europe/London"
+      - name: Setup Node.js 🔧
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+      - name: Install dependencies 🛠️
+        run: npm i
+      - name: Run Vitest 🧪
+        run: npx vitest run --silent
+
+  test_mountain_view:
+    name: Test Mountain View
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ✅
+        uses: actions/checkout@v3
+      - name: Set Timezone 🌍🌎🌏
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: "US/Pacific"
+      - name: Setup Node.js 🔧
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+      - name: Install dependencies 🛠️
+        run: npm i
+      - name: Run Vitest 🧪
+        run: npx vitest run --silent
+
+  test_tokyo:
+    name: Test Tokyo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ✅
+        uses: actions/checkout@v3
+      - name: Set Timezone 🌍🌎🌏
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: "Asia/Tokyo"
+      - name: Setup Node.js 🔧
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+      - name: Install dependencies 🛠️
+        run: npm i
+      - name: Run Vitest 🧪
+        run: npx vitest run --silent
+```
+
+You can also achieve the same thing with a local setup, using Docker. My solution for it can be found here: https://github.com/tomosterlund/qalendar/blob/master/docker-compose.yml
+
+## Mistake 3: Testing the app manually just in one timezone
+
+This was probably my most crucial mistake. Every time I opened my browser to view the calendar, I did so without configuring anything with regards to time.
+
+**Doing it the right way:**
+
+Test your application in the browser, as if you were viewing it in other time zones than your actual one. Google Chrome offers a feature called sensors. If you want to test your application, as if you were using it from somewhere else in the world:
+
+- Open dev tools
+- Click the three dots in the toolbar at the top
+- Click on more tools
+- Click sensors
+
+![sensors](/static/images/blog/sensors.gif)
+
+Now you will be presented the option to pick from different locations around the world. Whichever location you choose, will be set as your new [Geolocation](https://developer.chrome.com/docs/devtools/sensors/#geolocation). This will, in turn, affect the timezone offset used by the JavaScript Date object.
+
+## In conclusion
+
+Dates can be tricky. Test automation and Chrome sensors might not be the answer to all of your problems. What they can do, when you apply it like suggested in this article, is help you build greater confidence, that users around the globe can use your applications equally well, regardless of their location. Good luck!

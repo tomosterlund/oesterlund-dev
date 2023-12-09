@@ -1,19 +1,23 @@
 const projectsData = [
   {
-    title: 'A Search Engine',
-    description: `What if you could look up any information in the world? Webpages, images, videos
-    and more. Google has many features to help you find exactly what you're looking
-    for.`,
-    imgSrc: '/static/images/google.png',
-    href: 'https://www.google.com',
+    title: 'Qalendar - a calendar component for Vue 3',
+    description: `Originally created as part of a startup-idea, I ended up open sourcing this calendar even
+    if the rest of the project was laid to rest. It now has a small community of users and contributors on all continents. 
+    `,
+    imgSrc: '/static/images/qalendar.png',
+    href: 'https://github.com/tomosterlund/qalendar',
   },
   {
-    title: 'The Time Machine',
-    description: `Imagine being able to travel back in time or to the future. Simple turn the knob
-    to the desired date and press "Go". No more worrying about lost keys or
-    forgotten headphones with this simple yet affordable solution.`,
-    imgSrc: '/static/images/time-machine.jpg',
-    href: '/blog/the-time-machine',
+    title: 'Schedule-X',
+    description: `A material design library for calendar and date picker components. Available for all frameworks.`,
+    imgSrc: '/static/images/schedule-x-calendar-month.png',
+    href: 'https://github.com/schedule-x/schedule-x',
+  },
+  {
+    title: 'Vue Testing Best Practices',
+    description: `An opinionated collection of best practices for testing Vue components.`,
+    // imgSrc: '/static/images/schedule-x-calendar-month.png',
+    href: 'https://github.com/tomosterlund/vue-testing-best-practices',
   },
 ]
 

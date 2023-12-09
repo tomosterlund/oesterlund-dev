@@ -1,9 +1,9 @@
 /** @type {import("pliny/config").PlinyConfig } */
 const siteMetadata = {
-  title: 'Next.js Starter Blog',
-  author: 'Tails Azimuth',
-  headerTitle: 'TailwindBlog',
-  description: 'A blog created with Next.js and Tailwind.css',
+  title: 'oesterlund.dev',
+  author: 'Tom Österlund',
+  headerTitle: 'oesterlund.dev',
+  description: 'An opinionated blog about web development, open source and building calendars.',
   language: 'en-us',
   theme: 'system', // system, dark or light
   siteUrl: 'https://tailwind-nextjs-starter-blog.vercel.app',
@@ -11,11 +11,9 @@ const siteMetadata = {
   siteLogo: '/static/images/logo.png',
   socialBanner: '/static/images/twitter-card.png',
   mastodon: 'https://mastodon.social/@mastodonuser',
-  email: 'address@yoursite.com',
-  github: 'https://github.com',
-  twitter: 'https://twitter.com/Twitter',
-  facebook: 'https://facebook.com',
-  youtube: 'https://youtube.com',
+  email: 'tom.osterlund1@gmail.com',
+  github: 'https://github.com/tomosterlund',
+  // twitter: 'https://twitter.com/Twitter',
   linkedin: 'https://www.linkedin.com',
   locale: 'en-US',
   analytics: {

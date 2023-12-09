@@ -1,0 +1,341 @@
+---
+title: 'Testing Vue Components: mount vs shallowMount'
+date: '2023-09-25'
+tags: ['vue', 'testing']
+draft: false
+summary: 'The mounting function you settle with, is a matter of testing strategy. While many prefer using “mount”, arguing that this is more “authentic”, you might have good reasons to think twice.'
+---
+
+## TL;DR
+
+1. If your testing strategy is to write integration style tests; use `mount`. This will test how your components work together. Setup might be more cumbersome, but results more holistic.
+
+2. If your testing strategy is to write unit tests; use `shallowMount`. This helps you test each unit of your application in isolation. Setup might be cheaper, but results more scoped.
+
+## The discussion
+
+I recently took part in a discussion with a bunch of devs, which started with a statement, something along the lines of:
+
+> This test, using shallowMount, is completely redundant. It doesn’t test anything of value.
+
+The developer then showed us a test suite of a component, let’s call it “ProductList”, whose sole purpose was to handle a prop with a list of products, and then render a “Product” component for each product in the list. Mounting this with `shallowMount` might seem trivial at first, as it did for this particular developer. However, I would argue that choosing the right mounting function for you, is completely a matter of testing strategy. Let’s consider the two strategies possible here.
+
+## Writing an integration test with `mount`
+
+For the integration test strategy, we will use `mount`, in order to test our “ProductList” component, but also its integration with its children: a list of “Product” components.
+
+The two components:
+
+```js
+// ProductList.vue
+<template>
+  <Product
+      v-for="product in products"
+      :product="product"
+  />
+</template>
+
+<script lang="ts" setup>
+import { defineProps, PropType } from 'vue'
+import type { ProductType } from "@/types/productType";
+import Product from "@/components/product/Product.vue";
+
+defineProps({
+  products: {
+    type: Array as PropType<ProductType[]>,
+    required: true,
+  },
+})
+</script>
+```
+
+```js
+// Product.vue
+<template>
+  <div :data-testid="'id-' + product.id">
+    <span data-testid="product-title">
+      {{ product.title }}
+    </span>
+
+    <div
+        v-if="product.hasSale"
+        data-testid="sale-badge"
+    >
+      SALE
+    </div>
+
+    <div
+        data-testid="free-shipping-badge"
+        v-if="hasFreeShipping"
+    >
+      Free shipping
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import type { ProductType } from "@/types/productType";
+import type { PropType } from "vue";
+import { useCustomerStore } from "@/stores/customer";
+import { storeToRefs } from "pinia";
+
+defineProps({
+  product: {
+    type: Object as PropType<ProductType>,
+    required: true,
+  },
+})
+
+const customer = useCustomerStore();
+const { hasFreeShipping } = storeToRefs(customer)
+</script>
+```
+
+First, let’s see what cases we want to test. Considering the code above, I would settle on:
+
+1. Should display a title for all products
+2. Should display a “sale” badge
+3. Should not display a “sale” badge
+4. Should display “free shipping” badges
+5. Should not display any “free shipping” badges
+
+And my tests would look like this:
+
+```js
+// product-list-integration.spec.ts
+import { describe, it, expect, vi } from "vitest";
+import { mount } from "@vue/test-utils";
+import ProductList from "@/components/product-list/ProductList.vue";
+import { createTestingPinia } from '@pinia/testing'
+import type { ProductType } from "@/types/productType";
+import { useCustomerStore } from "@/stores/customer";
+
+describe("ProductList", () => {
+  describe('displaying products', () => {
+    const products: ProductType[] = [
+      {
+        id: 1,
+        title: 'Product 1',
+        hasSale: false,
+      },
+      {
+        id: 2,
+        title: 'Product 2',
+        hasSale: true,
+      },
+    ]
+
+    const mountOptions = {
+      props: {
+        products,
+      },
+      global: {
+        plugins: [createTestingPinia({
+          createSpy: vi.fn
+        })],
+      }
+    }
+    const customer = useCustomerStore()
+
+    it('should display a title for both products', () => {
+      const wrapper = mount(ProductList, mountOptions)
+      const productTitles = wrapper.findAll('[data-testid="product-title"]')
+
+      expect(productTitles).toHaveLength(2)
+    })
+
+    it('Should display a "sale" badge', () => {
+      const wrapper = mount(ProductList, mountOptions)
+      const productWithSale = wrapper.find('[data-testid="id-2"]')
+
+      expect(productWithSale.find('[data-testid="sale-badge"]').exists()).toBe(true)
+    })
+
+    it('Should not display a "sale" badge', () => {
+      const wrapper = mount(ProductList, mountOptions)
+      const productWithoutSale = wrapper.find('[data-testid="id-1"]')
+
+      expect(productWithoutSale.find('[data-testid="sale-badge"]').exists()).toBe(false)
+    })
+
+    it('should not display any "free shipping" badges', () => {
+      const wrapper = mount(ProductList, mountOptions)
+
+      expect(wrapper.find('[data-testid="free-shipping-badge"]').exists()).toBe(false)
+    })
+
+    it('should display "free shipping" badges', () => {
+      customer.hasFreeShipping = true
+      const wrapper = mount(ProductList, mountOptions)
+
+      expect(wrapper.find('[data-testid="free-shipping-badge"]').exists()).toBe(true)
+    })
+  })
+})
+```
+
+Writing tests like this has some implications, positive and negative ones. Let’s start with the positive ones:
+
+1. With a single test suite, we can get test coverage for multiple components.
+2. We use an integration of our independent components, much more similar to that how our real application might do it.
+3. We can focus more on high level APIs, instead of the individual API of each component.
+
+Drawbacks with this approach:
+
+1. If child components consume a lot of external APIs and data sources, like Pinia modules or calls to a server, setup code for the test suite might become very bloated.
+2. The test suite itself might become very large, having to test too many aspects in one place. Consider Yoni Goldberg’s golden rule about tests:
+
+> Design it to be short, dead-simple, flat, and delightful to work with. One should look at a test and get the intent instantly.
+
+## Writing unit tests with `shallowMount`
+
+First of all, notice the plural form: “tests”. If we decide to employ the unit testing strategy, we will not write one test suite anymore, but two. Testing more or less the same 5 cases as in the integration test above, my unit tests would look like this:
+
+```js
+// product-list-unit.spec.ts
+import { describe, it, expect, vi } from "vitest";
+import { shallowMount } from "@vue/test-utils";
+import ProductList from "@/components/product-list/ProductList.vue";
+import type { ProductType } from "@/types/productType";
+import Product from "@/components/product/Product.vue";
+
+describe("ProductList", () => {
+  describe('displaying products', () => {
+    const products: ProductType[] = [
+      {
+        id: 1,
+        title: 'Product 1',
+        hasSale: false,
+      },
+      {
+        id: 2,
+        title: 'Product 2',
+        hasSale: true,
+      },
+    ]
+
+    const mountOptions = {
+      props: {
+        products,
+      },
+    }
+
+    it('should display 2 products', () => {
+      const wrapper = shallowMount(ProductList, mountOptions)
+      const products = wrapper.findAllComponents(Product)
+
+      expect(products).toHaveLength(2)
+    })
+  })
+})
+```
+
+```js
+// product-unit.spec.ts
+import { describe, expect, it, vi } from "vitest";
+import type { ProductType } from "@/types/productType";
+import { shallowMount } from "@vue/test-utils";
+import Product from "@/components/product/Product.vue";
+import { createTestingPinia } from "@pinia/testing";
+import { useCustomerStore } from "@/stores/customer";
+
+describe("Product", () => {
+  describe('displaying a product', () => {
+    const productWithSale: ProductType = {
+      id: 1,
+      title: 'Product 1',
+      hasSale: true,
+    }
+
+    const productWithoutSale: ProductType = {
+      id: 2,
+      title: 'Product 2',
+      hasSale: false,
+    }
+
+    const globalOptions = {
+      plugins: [
+          createTestingPinia({
+            createSpy: vi.fn
+          })
+      ]
+    }
+    const getProductOnSale = () => {
+      return shallowMount(Product, {
+        props: {
+          product: productWithSale,
+        },
+        global: globalOptions
+      })
+    }
+
+    const getProductWithoutSale = () => {
+      return shallowMount(Product, {
+        props: {
+          product: productWithoutSale,
+        },
+        global: globalOptions
+      })
+    }
+
+    const customer = useCustomerStore()
+
+    it('should display the product title', () => {
+      const wrapper = getProductOnSale()
+
+      const productName = wrapper.find('[data-testid="product-title"]')
+      expect(productName.text()).toBe(productWithSale.title)
+    })
+
+    it('should display a sale badge', () => {
+      const wrapper = getProductOnSale()
+
+      const saleBadge = wrapper.find('[data-testid="sale-badge"]')
+      expect(saleBadge.exists()).toBe(true)
+    })
+
+    it('should not display a sale badge', () => {
+      const wrapper = getProductWithoutSale()
+
+      const saleBadge = wrapper.find('[data-testid="sale-badge"]')
+      expect(saleBadge.exists()).toBe(false)
+    })
+
+    it('should not display a free shipping badge', () => {
+      const wrapper = getProductOnSale()
+
+      const freeShippingBadge = wrapper.find('[data-testid="free-shipping-badge"]')
+      expect(freeShippingBadge.exists()).toBe(false)
+    })
+
+    it('should display a free shipping badge', () => {
+      customer.hasFreeShipping = true
+      const wrapper = getProductOnSale()
+
+      const freeShippingBadge = wrapper.find('[data-testid="free-shipping-badge"]')
+      expect(freeShippingBadge.exists()).toBe(true)
+    })
+  })
+})
+```
+
+So what are the implications of this strategy? First, again, the positive aspects:
+
+1. We can break testing of our system down to smaller chunks. One suite can focus on the APIs of a single component; a unit. Complexity per test might be smaller this way.
+2. We take a more fine granular approach to testing, and might therefore discover more edge cases that need testing.
+3. Setup code per test becomes less cumbersome. Notice how in the “ProductList” test, we don’t need to worry about the external APIs, like Pinia, of its child components.
+
+On the other hand, this strategy also has its drawbacks:
+
+1. Since all of our components are tested in isolation, we might get a good coverage of all of our individual component APIs. How the components work together, however, is not really tested; all integrations are stubbed and mocked away.
+2. Our tests might become more sensitive to refactoring, if we’re not careful. Consider the refactoring costs, of having to refactor 5 unit tests when a Pinia module that they depend on changes, instead of refactoring one test that implicitly tests 4 child components.
+
+## Some end notes
+
+The mounting function you settle with, is a matter of testing strategy. While many prefer using `mount`, arguing that this is more “authentic”, you might have good reasons to think twice.
+
+So what’s my preference?
+
+If I possess the option to invest a lot of resources in automated testing, writing end-to-end tests with for example Cypress or Playwright, I prefer testing components with `shallowMount`. The integration of components is also implicitly tested in my E2E tests. When testing my Vue components, I’ll stick to testing each component and its APIs individually.
+
+On the other hand, if the time you can invest in testing is more scarce, this might be a good reason to try and test the larger picture using `mount`, and instead leave out some E2E tests, which tend to be more expensive.
