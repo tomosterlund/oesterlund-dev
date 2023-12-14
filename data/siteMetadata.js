@@ -14,7 +14,7 @@ const siteMetadata = {
   email: 'tom.osterlund1@gmail.com',
   github: 'https://github.com/tomosterlund',
   // twitter: 'https://twitter.com/Twitter',
-  linkedin: 'https://www.linkedin.com',
+  linkedin: 'https://linkedin.com/in/tom-österlund-3752b516a',
   locale: 'en-US',
   analytics: {
     // If you want to use an analytics provider you have to add it to the
