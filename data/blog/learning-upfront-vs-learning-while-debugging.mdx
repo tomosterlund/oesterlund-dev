@@ -1,0 +1,64 @@
+---
+title: 'Learning Upfront vs. Learning While Debugging'
+date: '2023-12-11'
+tags: ['javascript']
+draft: false
+summary: 'Always. Read. The docs!'
+---
+
+## TL;DR
+
+Always. Read. The docs!
+
+## It was a great day, until I tested my build output
+
+On a sunny Saturday morning in November, I excitedly opened my MacBook. A fresh cup of coffee was teasing my nostrils with its addictive smell. With a blank schedule for the day, I was looking forward to finalizing some work for v1 of my new open source library.
+
+After building an open source calendar for over a year and a half, I had taken on the task of rebuilding it. I wanted better performance. More customization options. Unfortunately, I knew I had to start from scratch. This process of rebuilding it had taken me a few months. Now, one of the last things I had to do before publishing the v1 of the new calendar, was to publish a beta version to a package registry and test the uploaded build output. This is an easy task if you’ve done it a few times:
+
+- Run the build scripts.
+- Double check the package.json. Make some adjustments to expose the files from the build output.
+- Run npm publish. And done.
+
+The disappointment, when I just a moment later tested my build output in a playground repo, is hard to describe. Instead of my beautiful new material design calendar, there was this malformed piece of gray lines and text on the screen, and a browser console full of scarlet error messages. What was going on here?
+
+I inspected the build output a little. Googled some error messages. Built again. Published again. Fiddled around in the package.json files of the packages I had built. Build. Publish. Repeat. Frustrated about not being a single inch closer to resolving the problem, I shut my MacBook about 13 hours later. The day had passed.
+
+## Like WTF Rollup? How should I have known?
+
+The resolution happened late in the evening two days later after ~15 hours of total debugging. This was the by far longest I ever needed to debug a build problem. For some context: the calendar is built as a multi-package library, where each package has its own peer dependencies. The idea is that they should be able to share dependencies if identical. The entire time, I had suspected that my problem had something to do with my dependencies on Preact and Preact Signals. Or, better said, the way I declared my peer dependencies across packages. Only after too many hours, it appeared to me that maybe I wasn’t using the dependencies incorrectly in my source code or package.json files. Maybe they just weren’t treated correctly by my build script.
+
+This is where the realization struck me: my rollup build script was 90% just copied and pasted from a popular open source library that I knew, and for a small fraction of it, even if maybe just 10 lines long, I actually didn’t yet know exactly what it does. Did my problem lie in these 10 lines that I had not yet explored?
+
+Of course, as a reader, you know this to be the case. To me though, it hadn’t seemed so obvious. This was a build script I had used and seen battle tested before under very similar circumstances.
+
+From this point on, debugging was quick. I “zoomed in” on a line which implemented a plugin like this:
+
+```js
+plugins: [
+  // … other plugins
+  autoExternal()
+]
+```
+
+I believed this rollup plugin to have something to do with automatically excluding dependencies from the bundle. This is also what I always wanted and always thought I had. However, as I found out minutes later in the rollup documentation, this was not the case. Rollup requires each dependency that you want to exclude, to be declared exactly the way as they appear in import statements of the source code. The plugin I used, it turns out, does not help with this. It was based on package.json dependencies, and not at all the actual import statements used. Since I was importing modules from both preact and preact/hooks, rollup did not resolve both of these as external dependencies.
+
+Exactly how this caused my entire build to malfunction, I’m still not quite sure. But once I removed that plugin, and instead explicitly declared all my external dependencies, the problem was solved.
+
+After an initial brief reaction such as “how should I have known!?”, my inner voice reminded me: I had spent roughly 15 minutes in total, reading documentation for Rollup. For Rollup being one of the most powerful code bundlers out there, 15 minutes of reading the documentation is not a lot. Read the docs. That’s how one can know.
+
+## Learning upfront vs. learning while debugging
+
+Which brings me to the morale of this story. In most cases when you start using a technology that is new to you, you will have to learn many of its ins and outs at some point. It is not really the question if you learn how to use it, but when. Translated into practical terms for a developer:
+
+**Learning while implementing** vs. **learning while debugging**.
+
+Now, don’t get me wrong. I’m not trying to advocate that you need to set up a playground repo and try out all different options and APIs of a third party software before you implement it. Probably it won’t hurt you, but it might not be very pragmatic. What I do believe is that before you start implementing a software, you better:
+
+1. understand its purpose, benefits & disadvantages, as well as the basics for how to implement it
+
+2. **always** look up what a specific API of the software does, before you commit your usage of it to version control. Read those docs!
+
+I know now that I should have been stricter with myself with this second rule. If I had only read the ~150 word documentation to the rollup option `external` upfront, I probably would have solved my problem in less than an hour.
+
+Instead, I ended up learning while debugging.
