@@ -1,0 +1,101 @@
+---
+title: 'Learnings From Building an Open Source Project: 1 Year Down the Road'
+date: '2024-07-15'
+tags: ['javascript', 'open source']
+draft: false
+summary: 'It’s been almost exactly one year since I typed the words “initial commit” into the commit modal of my IDE. A lot has happened since...'
+---
+
+__It’s been almost exactly one year since I typed the words “initial commit” into the commit modal of my IDE. A lot has happened since; the repo is slowly closing in on 1000 GitHub-stars, the project Discord community grew to over 150 people, and the list of code contributors grew to 23. Here’s a collection of some of the most important learnings I made during this first year of building an open source event calendar.__
+
+![initial commit](/static/images/blog/initial-commit.webp)
+
+## Learning #1: Spread the word
+
+[Schedule-X](https://github.com/schedule-x/schedule-x) was not the first open source project I built. As a matter of fact, it wasn’t even the first open source calendar of mine. For almost 2 years I was building another calendar project, which was built specifically for Vue 3.
+
+It was an OK calendar, it had a couple of somewhat engaged contributors, and companies from all over the world implemented it in their web applications. It wasn’t as fully featured as the largest calendar projects out there, but probably enough to cover ~50% of calendar use cases. I guess what I’m trying to communicate is: it wasn’t that bad of a calendar.
+
+Still, after almost 2 years of development, the project was still just short of 200 stargazers on GitHub, and weekly downloads less than 2000 over at npm. OK, numbers might not be everything, but if you ask me, these 2 metrics reveal a lot about project success in the world of open source.
+
+Why then was this project not gaining that much traction, if it brought so much value to companies across the globe? As it would turn out: open source projects don’t market themselves, and I had barely written a word online about my calendar.
+
+**For open source projects to be visible, someone needs to let the world know they exist.**
+
+![megaphone](https://miro.medium.com/v2/resize:fit:720/format:webp/0*QR4w1VTkzCwzVL3t)
+
+<div style={{fontSize: '12px', marginTop: '-20px'} }>Photo by [Patrick Fore](https://unsplash.com/@patrickian4?utm_source=medium&utm_medium=referral) on Unsplash</div>
+
+When I started promoting Schedule-X after almost 6 months of building it, I started out in 2 places: Hacker News and X.
+
+As it turns out, Hacker News can be an amazing place to gain some initial traction for a project. After [a post](https://news.ycombinator.com/item?id=38838946#38851274) that made it to the top 10 on the HN start page, I had a sweaty few days keeping up with all the traction it brought. Suddenly, the project got featured in newsletters, VC people and people with business ideas contacted me via X and LinkedIn, and the number of GitHub stars grew from roughly 10, to several hundreds in the coming weeks. By comparison, it took me roughly 48 hours after I started promoting Schedule-X, to gain as much popularity on GitHub as the old project had gained in 2 years.
+
+![initial commit](/static/images/blog/hn-pic.webp)
+
+The following 6 months I’ve learned this lesson over and over again:
+
+Whenever I tell people about the project, things start moving. When I stop telling people about it, things slow down. This has taught me to firmly believe something I read in another blog post a while back:
+
+**An open source code repository without marketing, is basically just a private repo with a visibility-setting set to public.**
+
+## Learning #2: Don’t even try to please everyone
+
+On the one hand, the popularity of an open source project is strongly connected with the value that it can bring people. If it doesn’t give people what they need, the project probably won’t see much success. On the other hand, every software project needs to limit itself to a scope by answering some questions like:
+
+__Who’s the target user?__
+
+__What features does the target user need?__
+
+__And equally important: what type of features do I need to skip, in order to deliver maximum value to the target user?__
+
+Already during the first month of telling people about Schedule-X, the number of feature requests went beyond what I as a sole maintainer would possibly be able to handle. This has led me to adopt the mindset, that I shouldn’t even try to please everyone. **If I try to please everyone, I’m going to end up failing everyone.**
+
+An example:
+
+One of the visions I had when I started building the project, was to build a really performant and light-weight library. If my calendar is supposed to stay performant over time, I need to be mindful of what features to adopt. This means that sometimes, I will build a requested feature. But it also means that sometimes I won’t.
+
+I think what’s important when deciding against a feature, is to try and offer an alternative way for my users. Maybe I won’t have the time to build a feature. Or maybe a feature doesn’t fit in the project vision. But many times there are ways to get around this. My 2 favorite ways of doing so includes:
+
+* Making it as easy as possible for people to build their own feature: if I won’t build that requested feature, I can at least give some pointers to how they could implement it themselves. For this, I’ve built the library in a way, so that anyone could extend it by writing their own plugins. This doesn’t only apply to my users. I also apply this rule myself. Whenever I’m about to start building a feature, but I believe that only a fragment of my users will need it, I try to ship it as a plugin. This way, not everyone has to download that code, and the library core stays small.
+
+* Build a repertoire of acceptable workarounds: I know, workarounds can be dangerous, but they can also be the make it or break it-factor, for whether someone uses your library. In my case, I have a strong commitment to never changing any CSS class names or CSS custom properties. If I ever do, I will release it as a major version with a migration guide. This way, I can always confidently tell my users, that they can override these style rules and CSS custom properties as they see fit; it won’t cause them trouble when updating.
+
+## Learning #3: Make it easy to contribute
+
+The success of an open source project is also loosely related to whether people can contribute. Sure, there are cases where it might not make sense to accept code contributions. But as a rule of thumb, **successful projects are built by a multitude of people.**
+
+![initial commit](/static/images/blog/collab.webp)
+
+<div style={{fontSize: '12px', marginTop: '-20px'} }>People working together. Photo by [Annie Spratt](https://unsplash.com/@anniespratt?utm_source=medium&utm_medium=referral) on Unsplash</div>
+
+Having many people contribute to a code-base has multiple benefits. The top 2 benefits that I have seen are:
+
+* **Others can build what they need, when I don’t feel like building it:** for example, I want to allow my users to get the calendar translated. Their end users might speak other languages than I do, and my language limitations shouldn’t limit the usability of the calendar. That doesn’t mean that I want to take care of translating it. Surely, I could get this done with hours of manual repetitive labor and services like Deepl or Google translate. But do I feel like it? No way. Instead, I chose to include a quick manual on how to fork my repo and contribute with translations. This has already helped more than 10 people become first time contributors to the project.
+
+* **People tell others about things they’re proud about:** as I’ve already learned, marketing is crucial for any open source project. If I can help over 20 people to contribute with code to the calendar, surely at least a handful of them will tell someone about how they contributed to an open source project. Maybe they’ll even share a link to the project with some close friends or co-workers. It’s a win-win situation. They get the features they need. The project gets more attention.
+
+## Learning #4: Invest time in good error messages
+
+Some people say one of the few certainties in life is death. Similarly, in software, I believe one of the few certainties is errors. I have yet to meet a sane developer that claims they never had errors in their software. Knowing this, we should adjust the way we write software accordingly.
+
+![initial commit](/static/images/blog/404.webp)
+
+<div style={{fontSize: '12px', marginTop: '-20px'} }>People working together. Photo by [visuals](https://unsplash.com/@visuals?utm_source=medium&utm_medium=referral) on Unsplash</div>
+
+During my first 6 months of having users around, I have spent countless hours helping developers figure out what is going wrong in their application. Not every user has had these issues, but when they occur, they require time for investigation, fixing, or explaining.
+
+What annoys me time and time again is: plenty of different symptoms or problems that users reported to me, were all related to a set of very few different problems in my software.
+
+My two biggest mistakes, that cost me a lot of time and to some extent still do, were:
+
+1. **Too many unhandled exceptions:** scenarios I hadn’t foreseen or properly tested, didn’t work out in a specific use case. I probably could have prevented this with a bit stricter TDD.
+
+2. **Too many vague error messages:** sometimes, I threw errors in order to notify the developer implementing my library that something is wrong. Doing so with little effort put into it was a very bad choice. At least a dozen times, my users ended up writing me PMs or opening issues, just because some error was thrown with a very vague message that only I could decipher. From now on, I view error messages as documentation. Many times errors are thrown because the library is misused. When that happens, and I believe it always will to some extent, the error messages need to explain in plain language how it is misused, and what the developer can do about it. Lately, I even started linking to my documentation website in some error messages.
+
+## A few words to wrap up
+
+Building open source is awesome. It is rewarding in many ways for us who build it. Sometimes though, I wish that the software community would be more aware of how heavily it depends on the work of a few people volunteering with their time and effort, and complain less when being in contact with those people.
+
+This goes especially for when people use projects with permissive licenses like MIT, where the author of a software has literally zero percent responsibility for how people consume their code.
+
+With that said, I’m looking forward to the second year of building Schedule-X, and maybe I’ll see you on GitHub or on [X](https://x.com/TomOesterlund) where I’m writing more frequently about the journey.
